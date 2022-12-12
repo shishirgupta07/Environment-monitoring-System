@@ -1,0 +1,84 @@
+#include "UbidotsEsp32Mqtt.h"
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <DHT.h>
+
+#define DHPIN 27
+#define DHTYPE DHT11
+
+/****************************************
+ * Define Constants
+ ****************************************/
+const char *UBIDOTS_TOKEN = "BBFF-i125QwH4o6MhxKKos5RPNMJeMLyDw5";  // Put here your Ubidots TOKEN
+const char *WIFI_SSID = "BPGC-A1";      // Put here your Wi-Fi SSID
+const char *WIFI_PASS = "Harsh@511";      // Put here your Wi-Fi password
+const char *DEVICE_LABEL = "esp32";   // Put here your Device label to which data  will be published
+const char *VARIABLE_LABEL = "gas-sensor"; // Put here your Variable label to which data  will be published
+const char *VARIABLE_LABEL2 = "temperature";
+const char *VARIABLE_LABEL3 = "humidity";
+
+const int PUBLISH_FREQUENCY = 5000; // Update rate in milliseconds
+
+unsigned long timer;
+uint8_t analogPin = 32; // Pin used to read data from GPIO34 ADC_CH6.
+uint8_t analogPin2 = 27;
+
+DHT dht(DHPIN, DHTYPE); 
+ 
+
+Ubidots ubidots(UBIDOTS_TOKEN);
+
+/****************************************
+ * Auxiliar Functions
+ ****************************************/
+
+void callback(char *topic, byte *payload, unsigned int length)
+{
+  Serial.print("Message arrived [");
+  Serial.print(topic);
+  Serial.print("] ");
+  for (int i = 0; i < length; i++)
+  {
+    Serial.print((char)payload[i]);
+  }
+  Serial.println();
+}
+
+/****************************************
+ * Main Functions
+ ****************************************/
+
+void setup()
+{
+  // put your setup code here, to run once:
+  Serial.begin(115200);
+  // ubidots.setDebug(true);  // uncomment this to make debug messages available
+  ubidots.connectToWifi(WIFI_SSID, WIFI_PASS);
+  ubidots.setCallback(callback);
+  ubidots.setup();
+  ubidots.reconnect();
+
+  timer = millis();
+}
+
+void loop()
+{
+  // put your main code here, to run repeatedly:
+  if (!ubidots.connected())
+  {
+    ubidots.reconnect();
+  }
+  
+    float value = analogRead(analogPin);
+    delay(1000);
+    float humidity = dht.readHumidity();
+    float temperature = dht.readTemperature();
+
+    ubidots.add(VARIABLE_LABEL, value);
+    ubidots.add(VARIABLE_LABEL2, temperature); // Insert your variable Labels and the value to be sent
+    ubidots.add(VARIABLE_LABEL3, humidity);
+    ubidots.publish(DEVICE_LABEL);
+    timer = millis();
+  
+  ubidots.loop();
+}
